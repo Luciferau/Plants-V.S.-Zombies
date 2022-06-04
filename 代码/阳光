@@ -1,0 +1,82 @@
+#include <stdio.h>
+#include <Windows.h>
+int main()
+{
+	//1,步骤查找植物大战僵尸Plants vs. Zombies GOTY  
+	HWND hGameWnd = FindWindow(L"MainWindow", L"Plants vs. Zombies GOTY ");
+	//没有运行游戏5
+	if (hGameWnd == NULL)
+	{
+		printf("没有运行这个游戏\n");
+		return 0;
+	}
+	//2根据窗口句柄获取进程的PID,Process ID
+	DWORD dwPID = 0;
+	GetWindowThreadProcessId(hGameWnd, &dwPID);
+	if (dwPID == 0)
+	{
+		printf("获取进程PID失败:%d\n", GetLastError());
+		return 0;
+	}
+	//3.根据PID获取进程句柄
+	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPID);//打开哪个进程，PID的进程
+	if (hProcess == NULL)
+	{
+		printf("打开进程失败,错误代码:%d\n", GetLastError());
+		return 0;
+	}
+	//4从指定位置进程内存区去读取数据
+	DWORD dwSunshineBase = 0x007794f8;
+	DWORD dwSunshineAddressValue = 0;
+	SIZE_T dwSize = 0;
+	if(FALSE==ReadProcessMemory(
+		hProcess,//读取哪一个进程
+		(LPVOID)dwSunshineBase,//要读取的基地址       
+		&dwSunshineAddressValue,//接受进程地址数据
+		sizeof(DWORD),//DWORD=unsigned long 要读取的4个字节数
+		&dwSize))
+	{
+		printf("获取静态地址失败错误代码.\n", GetLastError());
+		return 0;
+	}
+//5，获取一级便宜地址;
+DWORD dwSunshineOffsetFirst = 0X868;
+DWORD dwSunshineOffsetValue = 0;//读 取出来的地址值保留到这个变量来
+if (FALSE == ReadProcessMemory(hProcess,
+	(LPVOID)(dwSunshineAddressValue + dwSunshineOffsetFirst),
+	&dwSunshineOffsetValue,
+	sizeof(DWORD),
+	&dwSize))
+  {
+ 	printf("获取一级偏移地址失败,错误代码%d\n",GetLastError());
+	return 0;
+   }
+//6,二级便宜
+DWORD dwSunshineOffsetSecond = 0x5578;//2级便宜的地址
+DWORD dwSunshine = 0;//2级便宜后直接的到我们的阳光值
+if (FALSE == ReadProcessMemory(
+	hProcess,
+	(LPVOID)(dwSunshineOffsetValue + dwSunshineOffsetSecond),
+	&dwSunshine,
+	sizeof(DWORD),
+	&dwSize
+ ))
+{
+	printf("2级偏移地址失败,错误代码%d\n", GetLastError());
+	return 0;
+}
+	printf("阳光值是%d\n", dwSunshine);
+
+	printf("亲输入你要修改的阳关值:\n");
+	int nModifySunshine;
+	scanf("%d", &nModifySunshine);
+	//修改阳光值
+	WriteProcessMemory(
+		hProcess,
+		(LPVOID)(dwSunshineOffsetValue + dwSunshineOffsetSecond),
+		&nModifySunshine,
+		sizeof(DWORD),
+		&dwSize);
+	CloseHandle(hProcess);
+	return 0;
+}
